@@ -53,6 +53,19 @@
   .frame.pseudo-fs{position:fixed; inset:0; z-index:50; aspect-ratio:auto}
   .frame.pseudo-fs .tap{cursor:zoom-out}
 
+  /* מצב "אין שידור" */
+  .offline{
+    position:absolute; inset:0; display:none; flex-direction:column;
+    align-items:center; justify-content:center; gap:6px; text-align:center;
+    background:#0b0c0e; pointer-events:none;
+  }
+  .frame.is-off .offline{display:flex}
+  .offline b{font-size:15px; font-weight:600; color:var(--text)}
+  .offline small{font-size:12px; color:var(--muted)}
+  .tag i{background:#4a4e55}
+  .tag.on i{background:var(--live)}
+  .tag em{font-style:normal}
+
   .hint{color:var(--muted); font-size:12px; padding:0 14px 4px}
 
   footer{
@@ -74,12 +87,12 @@
 
 <main>
   <section class="cam">
-    <div class="cam-head"><span class="label">Mavic 3T</span><span class="tag"><i></i>LIVE</span></div>
+    <div class="cam-head"><span class="label">Mavic 3T</span><span class="tag"><i></i><em>מתחבר</em></span></div>
     <div class="frame" data-id="Vxlg-_2S9yQ"></div>
   </section>
 
   <section class="cam">
-    <div class="cam-head"><span class="label">Mini Pro 5</span><span class="tag"><i></i>LIVE</span></div>
+    <div class="cam-head"><span class="label">Mini Pro 5</span><span class="tag"><i></i><em>מתחבר</em></span></div>
     <div class="frame" data-id="Ic1-_raFjSU"></div>
   </section>
 </main>
@@ -93,17 +106,66 @@
 
 <script>
 (function(){
-  // נגנים
-  document.querySelectorAll('.frame').forEach(function(f){
+  // נגנים דרך YouTube IFrame API, כדי לדעת מתי יש שידור בפועל
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+  window.onYouTubeIframeAPIReady = function(){
+    document.querySelectorAll('.frame').forEach(setupPlayer);
+  };
+
+  function setupPlayer(f){
     var id = f.dataset.id;
-    var src = 'https://www.youtube-nocookie.com/embed/' + id +
-      '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1';
-    var ifr = document.createElement('iframe');
-    ifr.src = src;
-    ifr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-    ifr.referrerPolicy = 'strict-origin-when-cross-origin';
-    ifr.title = 'live';
-    f.appendChild(ifr);
+    var tag = f.parentNode.querySelector('.tag');
+    var holder = document.createElement('div');
+    f.appendChild(holder);
+
+    var off = document.createElement('div');
+    off.className = 'offline';
+    off.innerHTML = '<b>מתחבר לשידור</b><small></small>';
+    f.appendChild(off);
+    f.classList.add('is-off');
+
+    var live = false, bufSince = 0, started = Date.now();
+    var p = new YT.Player(holder, {
+      host: 'https://www.youtube-nocookie.com',
+      videoId: id,
+      playerVars: {autoplay:1, mute:1, playsinline:1, controls:0, rel:0, iv_load_policy:3, disablekb:1},
+      events: {
+        onReady: function(e){ e.target.mute(); e.target.playVideo(); },
+        onStateChange: function(){ check(); }
+      }
+    });
+
+    function set(v){
+      if (v === live && started === 0) return;
+      live = v; started = 0;
+      f.classList.toggle('is-off', !v);
+      tag.classList.toggle('on', v);
+      tag.querySelector('em').textContent = v ? 'LIVE' : 'לא פעיל';
+      off.innerHTML = '<b>אין שידור כרגע</b><small>הדף יתחבר מעצמו כשהשידור יתחיל</small>';
+    }
+
+    function check(){
+      if (!p.getPlayerState) return;
+      var st = p.getPlayerState();
+      if (st === 1){ bufSince = 0; set(true); return; }
+      if (st === 3){                       // טוען: נותנים לו 15 שניות
+        if (!bufSince) bufSince = Date.now();
+        if (Date.now() - bufSince > 15000) set(false);
+        return;
+      }
+      bufSince = 0;
+      if (started && Date.now() - started < 10000) return;  // זמן חיבור ראשוני
+      set(false);
+    }
+
+    setInterval(function(){
+      check();
+      if (!live && p.playVideo) p.playVideo();
+    }, 5000);
+    // כשאין שידור: טעינה מחדש פעם בדקה, כדי לתפוס שידור שהתחיל
+    setInterval(function(){ if (!live && p.loadVideoById) p.loadVideoById(id); }, 60000);
 
     var tap = document.createElement('div');
     tap.className = 'tap';
@@ -117,7 +179,7 @@
       if (now - last < 320){ e.preventDefault(); toggle(f); last = 0; }
       else last = now;
     }, {passive:false});
-  });
+  }
 
   function toggle(f){
     var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
