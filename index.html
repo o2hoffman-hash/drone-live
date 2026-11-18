@@ -125,7 +125,7 @@
     f.appendChild(off);
     f.classList.add('is-off');
 
-    var live = false, bufSince = 0, started = Date.now(), lastT = -1, lastMove = Date.now();
+    var live = false, bufSince = 0, started = Date.now(), lastT = -1, lastMove = Date.now(), baseT = null;
     var p = new YT.Player(holder, {
       host: 'https://www.youtube-nocookie.com',
       videoId: id,
@@ -153,8 +153,11 @@
         // יוטיוב לפעמים ממשיך לדווח "מנגן" על תמונה קפואה, ולכן בודקים שהזמן באמת מתקדם
         var t = p.getCurrentTime ? p.getCurrentTime() : 0;
         if (t !== lastT){ lastT = t; lastMove = Date.now(); }
-        if (Date.now() - lastMove > 12000){ set(false); p.loadVideoById(id); lastMove = Date.now(); return; }
-        set(true); return;
+        if (Date.now() - lastMove > 12000){ baseT = null; set(false); return; }
+        // מציגים כשידור חי רק אחרי שהווידאו התקדם בפועל כמה שניות
+        if (baseT === null){ baseT = t; return; }
+        if (t - baseT > 4) set(true);
+        return;
       }
       if (st === 3){                       // טוען: נותנים לו 15 שניות
         if (!bufSince) bufSince = Date.now();
