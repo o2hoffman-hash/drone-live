@@ -138,7 +138,7 @@
 
     function set(v){
       if (v === live && started === 0) return;
-      live = v; started = 0;
+      live = v; started = 0; if (!v) baseT = null;
       f.classList.toggle('is-off', !v);
       tag.classList.toggle('on', v);
       tag.querySelector('em').textContent = v ? 'LIVE' : 'לא פעיל';
