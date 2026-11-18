@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>שידור חי</title>
+<style>
+  :root{
+    --bg:#0e0f11; --panel:#16181b; --line:#25282d;
+    --text:#e6e6e3; --muted:#8b8f96; --live:#d33a2c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Assistant","Heebo",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+    display:flex; flex-direction:column; min-height:100dvh;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px; border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:12px}
+  .brand img{height:30px; width:auto; display:block}
+  .brand .name{font-size:17px; font-weight:600; letter-spacing:.2px}
+  .clock{font-variant-numeric:tabular-nums; color:var(--muted); font-size:14px}
+
+  main{
+    flex:1; display:grid; gap:14px; padding:14px;
+    grid-template-columns:1fr 1fr; align-content:start;
+  }
+  @media (max-width:900px){ main{grid-template-columns:1fr} }
+
+  .cam{background:var(--panel); border:1px solid var(--line); border-radius:4px; overflow:hidden}
+  .cam-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 12px; font-size:14px; border-bottom:1px solid var(--line);
+  }
+  .cam-head .label{font-weight:600}
+  .tag{display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; letter-spacing:.6px}
+  .tag i{width:7px; height:7px; border-radius:50%; background:var(--live); display:inline-block}
+
+  .frame{position:relative; aspect-ratio:16/9; background:#000}
+  .frame iframe{position:absolute; inset:0; width:100%; height:100%; border:0}
+  .tap{position:absolute; inset:0; cursor:zoom-in; -webkit-tap-highlight-color:transparent}
+
+  /* מסך מלא */
+  .frame:fullscreen{aspect-ratio:auto; width:100%; height:100%}
+  .frame:fullscreen .tap{cursor:zoom-out}
+  .frame.pseudo-fs{position:fixed; inset:0; z-index:50; aspect-ratio:auto}
+  .frame.pseudo-fs .tap{cursor:zoom-out}
+
+  .hint{color:var(--muted); font-size:12px; padding:0 14px 4px}
+
+  footer{
+    border-top:1px solid var(--line); padding:14px 20px;
+    text-align:center; color:var(--muted); font-size:13px; letter-spacing:.3px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <!-- להחליף ל-logo.png האמיתי -->
+    <img src="logo.png" alt="" onerror="this.remove()">
+    <span class="name">שידור חי</span>
+  </div>
+  <div class="clock" id="clock"></div>
+</header>
+
+<main>
+  <section class="cam">
+    <div class="cam-head"><span class="label">Mavic 3T</span><span class="tag"><i></i>LIVE</span></div>
+    <div class="frame" data-id="IMfbCOc7E2Y"></div>
+  </section>
+
+  <section class="cam">
+    <div class="cam-head"><span class="label">Mini</span><span class="tag"><i></i>LIVE</span></div>
+    <div class="frame" data-id="zkQXW8A2HYc"></div>
+  </section>
+</main>
+
+<p class="hint">לחיצה כפולה על שידור פותחת אותו במסך מלא. לחיצה כפולה נוספת סוגרת.</p>
+
+<footer>
+  <!-- להחליף לסלוגן של "הבית שלי" -->
+  <span id="slogan">SLOGAN</span>
+</footer>
+
+<script>
+(function(){
+  // נגנים
+  document.querySelectorAll('.frame').forEach(function(f){
+    var id = f.dataset.id;
+    var src = 'https://www.youtube-nocookie.com/embed/' + id +
+      '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1';
+    var ifr = document.createElement('iframe');
+    ifr.src = src;
+    ifr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    ifr.referrerPolicy = 'strict-origin-when-cross-origin';
+    ifr.title = 'live';
+    f.appendChild(ifr);
+
+    var tap = document.createElement('div');
+    tap.className = 'tap';
+    f.appendChild(tap);
+
+    // לחיצה כפולה (עכבר) + הקשה כפולה (מגע)
+    var last = 0;
+    tap.addEventListener('dblclick', function(e){ e.preventDefault(); toggle(f); });
+    tap.addEventListener('touchend', function(e){
+      var now = Date.now();
+      if (now - last < 320){ e.preventDefault(); toggle(f); last = 0; }
+      else last = now;
+    }, {passive:false});
+  });
+
+  function toggle(f){
+    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    if (f.classList.contains('pseudo-fs')){ f.classList.remove('pseudo-fs'); return; }
+    var req = f.requestFullscreen || f.webkitRequestFullscreen;
+    if (req){
+      Promise.resolve(req.call(f)).then(function(){
+        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function(){});
+      }).catch(function(){ f.classList.add('pseudo-fs'); });
+    } else {
+      // אייפון: אין Fullscreen API לאלמנטים, ולכן מסך מלא בתוך הדף
+      f.classList.add('pseudo-fs');
+    }
+  }
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') document.querySelectorAll('.pseudo-fs').forEach(function(f){ f.classList.remove('pseudo-fs'); });
+  });
+
+  // שעון
+  var c = document.getElementById('clock');
+  function tick(){ c.textContent = new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+  tick(); setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
