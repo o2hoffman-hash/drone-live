@@ -126,7 +126,7 @@
     f.appendChild(off);
     f.classList.add('is-off');
 
-    var live = false, started = Date.now(), lastD = -1, durMove = 0;
+    var live = false, started = Date.now(), lastD = -1, durMove = 0, lastT = -1, runFrom = 0, bufFrom = 0;
     var p = new YT.Player(holder, {
       host: 'https://www.youtube-nocookie.com',
       videoId: id,
@@ -150,13 +150,21 @@
       if (!p.getPlayerState) return;
       var st = p.getPlayerState();
       var now = Date.now();
-      if (st === 1 || st === 3){
-        // כשהרחפן כבוי, יוטיוב מנגן בלולאה את השניות האחרונות שנשמרו, והאורך שלהן קבוע.
-        // בשידור אמיתי האורך (duration) גדל כל הזמן, ולפי זה מזהים.
-        var d = p.getDuration ? p.getDuration() : 0;
-        if (d > lastD + 0.5){ if (lastD >= 0) durMove = now; lastD = d; }
-        if (durMove && now - durMove < 20000){ set(true); return; }
-      }
+      // כשהרחפן כבוי, יוטיוב מנגן את השניות האחרונות שנשמרו ואז נתקע בטעינה.
+      // שידור אמיתי מזוהה לפי אחד משני סימנים:
+      // 1. האורך (duration) גדל בהדרגה (קפיצה חד-פעמית, למשל ל-3600, לא נחשבת)
+      // 2. הנגן מתקדם ברצף יותר מ-30 שניות, יותר מאורך ההקלטה השמורה
+      var d = p.getDuration ? p.getDuration() : 0;
+      var t = p.getCurrentTime ? p.getCurrentTime() : 0;
+      if (lastD >= 0 && d - lastD > 0.5 && d - lastD < 30) durMove = now;
+      lastD = d;
+      if (st === 1 && t > lastT){ if (!runFrom) runFrom = now; }
+      else if (st !== 1) runFrom = 0;
+      lastT = t;
+      if (st === 3){ if (!bufFrom) bufFrom = now; } else bufFrom = 0;
+      var stalled = bufFrom && now - bufFrom > 8000;
+      if (!stalled && ((durMove && now - durMove < 20000) || (runFrom && now - runFrom > 30000))){ set(true); return; }
+      if (live && !stalled && st === 1) return;   // ממשיך להציג שידור פעיל
       if (started && now - started < 12000) return;  // זמן חיבור ראשוני
       set(false);
     }
@@ -182,7 +190,7 @@
       }, 1000);
     }
     // כשאין שידור: טעינה מחדש פעם בדקה, כדי לתפוס שידור שהתחיל
-    setInterval(function(){ if (!live && p.loadVideoById){ lastD = -1; durMove = 0; p.loadVideoById(id); } }, 60000);
+    setInterval(function(){ if (!live && p.loadVideoById){ lastD = -1; durMove = 0; runFrom = 0; p.loadVideoById(id); } }, 60000);
 
     var tap = document.createElement('div');
     tap.className = 'tap';
