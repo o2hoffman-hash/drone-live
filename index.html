@@ -125,7 +125,7 @@
     f.appendChild(off);
     f.classList.add('is-off');
 
-    var live = false, bufSince = 0, started = Date.now();
+    var live = false, bufSince = 0, started = Date.now(), lastT = -1, lastMove = Date.now();
     var p = new YT.Player(holder, {
       host: 'https://www.youtube-nocookie.com',
       videoId: id,
@@ -148,7 +148,14 @@
     function check(){
       if (!p.getPlayerState) return;
       var st = p.getPlayerState();
-      if (st === 1){ bufSince = 0; set(true); return; }
+      if (st === 1){
+        bufSince = 0;
+        // יוטיוב לפעמים ממשיך לדווח "מנגן" על תמונה קפואה, ולכן בודקים שהזמן באמת מתקדם
+        var t = p.getCurrentTime ? p.getCurrentTime() : 0;
+        if (t !== lastT){ lastT = t; lastMove = Date.now(); }
+        if (Date.now() - lastMove > 12000){ set(false); p.loadVideoById(id); lastMove = Date.now(); return; }
+        set(true); return;
+      }
       if (st === 3){                       // טוען: נותנים לו 15 שניות
         if (!bufSince) bufSince = Date.now();
         if (Date.now() - bufSince > 15000) set(false);
