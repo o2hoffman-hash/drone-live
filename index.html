@@ -174,6 +174,22 @@
       check();
       if (!live && p.playVideo) p.playVideo();
     }, 5000);
+
+    // מצב אבחון: להוסיף ?debug=1 לכתובת
+    if (/debug=1/.test(location.search)){
+      var dbg = document.createElement('pre');
+      dbg.style.cssText = 'position:absolute;top:4px;left:4px;z-index:9;margin:0;padding:4px 6px;font:11px/1.4 monospace;color:#9f9;background:rgba(0,0,0,.75);pointer-events:none;direction:ltr';
+      f.appendChild(dbg);
+      setInterval(function(){
+        if (!p.getPlayerState) return;
+        var vd = p.getVideoData ? p.getVideoData() : {};
+        dbg.textContent = 'state ' + p.getPlayerState() +
+          '  t ' + (p.getCurrentTime() || 0).toFixed(1) +
+          '  dur ' + (p.getDuration() || 0).toFixed(1) +
+          '  loaded ' + (p.getVideoLoadedFraction() || 0).toFixed(3) +
+          '\nlive ' + live + '  isLive ' + vd.isLive + '  q ' + p.getPlaybackQuality();
+      }, 1000);
+    }
     // כשאין שידור: טעינה מחדש פעם בדקה, כדי לתפוס שידור שהתחיל
     setInterval(function(){ if (!live && p.loadVideoById) p.loadVideoById(id); }, 60000);
 
